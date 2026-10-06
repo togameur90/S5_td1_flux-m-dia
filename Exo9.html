@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Exercice 9</title>
+</head>
+<body>
+    <h1>Exercice 9</h1>
+
+    <audio-video source="audio video" height="240"></audio-video>
+
+    <script>
+        class AudioVideo extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                
+                this.source = this.getAttribute('source') || 'video';
+                this.hasVideo = this.source.includes('video');
+                this.hasAudio = this.source.includes('audio');
+                
+                this.shadowRoot.innerHTML = `
+                    <style>
+                        .controls { margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap; }
+                        video { background: #000; display: ${this.hasVideo ? 'block' : 'none'}; }
+                        .photo-area { margin-top: 15px; display: flex; gap: 20px; flex-wrap: wrap; }
+                        .photo-box { border: 1px solid #ccc; padding: 10px; display: none; flex-direction: column; align-items: center; }
+                        canvas, img { max-width: 100%; border: 1px solid #eee; margin-top: 10px; margin-bottom: 10px; }
+                        a.download-btn { padding: 5px 10px; background: #28a745; color: white; text-decoration: none; border-radius: 3px; font-family: sans-serif; font-size: 14px; text-align: center; }
+                    </style>
+                    <video autoplay playsinline></video>
+                    <div class="controls">
+                        <button id="btn-start">Démarrer</button>
+                        ${this.hasVideo ? `
+                            <button id="btn-pause-vid" disabled>Pause Vidéo</button>
+                            <button id="btn-stop-vid" disabled>Stop Vidéo</button>
+                            <button id="btn-grab" disabled>grabFrame()</button>
+                            <button id="btn-take" disabled>takePhoto()</button>
+                        ` : ''}
+                        ${this.hasAudio ? `
+                            <button id="btn-pause-aud" disabled>Pause Audio</button>
+                            <button id="btn-stop-aud" disabled>Stop Audio</button>
+                        ` : ''}
+                    </div>
+                    ${this.hasVideo ? `
+                    <div class="photo-area">
+                        <div id="box-grab" class="photo-box">
+                            <strong>grabFrame()</strong>
+                            <canvas></canvas>
+                            <a id="dl-grab" class="download-btn" download="grabframe.png">Télécharger</a>
+                        </div>
+                        <div id="box-take" class="photo-box">
+                            <strong>takePhoto()</strong>
+                            <img id="img-take" />
+                            <a id="dl-take" class="download-btn" download="takephoto.jpg">Télécharger</a>
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+
+                this.videoEl = this.shadowRoot.querySelector('video');
+                this.stream = null;
+                this.imageCapture = null;
+
+                if (this.hasVideo) {
+                    if (this.hasAttribute('width')) this.videoEl.setAttribute('width', this.getAttribute('width'));
+                    if (this.hasAttribute('height')) this.videoEl.setAttribute('height', this.getAttribute('height'));
+                }
+            }
+
+            connectedCallback() {
+                const btnStart = this.shadowRoot.getElementById('btn-start');
+                const btnPauseVid = this.shadowRoot.getElementById('btn-pause-vid');
+                const btnStopVid = this.shadowRoot.getElementById('btn-stop-vid');
+                const btnPauseAud = this.shadowRoot.getElementById('btn-pause-aud');
+                const btnStopAud = this.shadowRoot.getElementById('btn-stop-aud');
+                const btnGrab = this.shadowRoot.getElementById('btn-grab');
+                const btnTake = this.shadowRoot.getElementById('btn-take');
+                
+                const boxGrab = this.shadowRoot.getElementById('box-grab');
+                const canvas = this.shadowRoot.querySelector('canvas');
+                const dlGrab = this.shadowRoot.getElementById('dl-grab');
+
+                const boxTake = this.shadowRoot.getElementById('box-take');
+                const imgTake = this.shadowRoot.getElementById('img-take');
+                const dlTake = this.shadowRoot.getElementById('dl-take');
+
+                btnStart.addEventListener('click', async () => {
+                    try {
+                        this.stream = await navigator.mediaDevices.getUserMedia({
+                            video: this.hasVideo,
+                            audio: this.hasAudio
+                        });
+                        
+                        if (this.hasVideo) {
+                            this.videoEl.srcObject = this.stream;
+                            this.videoEl.onloadedmetadata = () => {
+                                if (this.hasAttribute('width')) {
+                                    this.videoEl.setAttribute('height', this.getAttribute('width') * this.videoEl.videoHeight / this.videoEl.videoWidth);
+                                } else if (this.hasAttribute('height')) {
+                                    this.videoEl.setAttribute('width', this.getAttribute('height') * this.videoEl.videoWidth / this.videoEl.videoHeight);
+                                }
+                            };
+                            
+                            // Initialisation de ImageCapture
+                            const track = this.stream.getVideoTracks()[0];
+                            try {
+                                this.imageCapture = new ImageCapture(track);
+                                btnGrab.disabled = false;
+                                btnTake.disabled = false;
+                            } catch (e) {
+                                console.error('API ImageCapture non supportée sur ce navigateur.', e);
+                            }
+                        }
+
+                        btnStart.disabled = true;
+                        if (this.hasVideo) { 
+                            btnPauseVid.disabled = false; 
+                            btnStopVid.disabled = false; 
+                        }
+                        if (this.hasAudio) { 
+                            btnPauseAud.disabled = false; 
+                            btnStopAud.disabled = false; 
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                });
+
+                if (this.hasVideo) {
+                    btnPauseVid.addEventListener('click', () => {
+                        const track = this.stream.getVideoTracks()[0];
+                        if (track) {
+                            track.enabled = !track.enabled;
+                            btnPauseVid.textContent = track.enabled ? "Pause Vidéo" : "Reprendre Vidéo";
+                        }
+                    });
+                    
+                    btnStopVid.addEventListener('click', () => {
+                        const track = this.stream.getVideoTracks()[0];
+                        if (track) {
+                            track.stop();
+                            btnPauseVid.disabled = true;
+                            btnStopVid.disabled = true;
+                            btnGrab.disabled = true;
+                            btnTake.disabled = true;
+                        }
+                    });
+
+                    // Technique 1: grabFrame
+                    btnGrab.addEventListener('click', () => {
+                        if (this.imageCapture) {
+                            this.imageCapture.grabFrame()
+                                .then(imageBitmap => {
+                                    canvas.width = imageBitmap.width;
+                                    canvas.height = imageBitmap.height;
+                                    const ctx = canvas.getContext('2d');
+                                    ctx.drawImage(imageBitmap, 0, 0);
+                                    
+                                    dlGrab.href = canvas.toDataURL('image/png');
+                                    boxGrab.style.display = 'flex';
+                                })
+                                .catch(err => console.error('Erreur grabFrame:', err));
+                        }
+                    });
+
+                    // Technique 2: takePhoto
+                    btnTake.addEventListener('click', () => {
+                        if (this.imageCapture) {
+                            this.imageCapture.takePhoto()
+                                .then(blob => {
+                                    const url = URL.createObjectURL(blob);
+                                    imgTake.src = url;
+                                    dlTake.href = url;
+                                    boxTake.style.display = 'flex';
+                                })
+                                .catch(err => console.error('Erreur takePhoto:', err));
+                        }
+                    });
+                }
+
+                if (this.hasAudio) {
+                    btnPauseAud.addEventListener('click', () => {
+                        const track = this.stream.getAudioTracks()[0];
+                        if (track) {
+                            track.enabled = !track.enabled;
+                            btnPauseAud.textContent = track.enabled ? "Pause Audio" : "Reprendre Audio";
+                        }
+                    });
+
+                    btnStopAud.addEventListener('click', () => {
+                        const track = this.stream.getAudioTracks()[0];
+                        if (track) {
+                            track.stop();
+                            btnPauseAud.disabled = true;
+                            btnStopAud.disabled = true;
+                        }
+                    });
+                }
+            }
+        }
+
+        customElements.define('audio-video', AudioVideo);
+    </script>
+</body>
+</html>
