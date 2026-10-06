@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Exercice 1</title>
+</head>
+<body>
+    <h1>Exercice 1</h1>
+    <p>Ouvrez la console</p>
+
+    <script>
+        if (!navigator.mediaDevices?.enumerateDevices) {
+            console.log("enumerateDevices() n'est pas supporté.");
+        } else {
+            navigator.mediaDevices.enumerateDevices()
+            .then((devices) => {
+                console.log("--- Sources de données média ---");
+                devices.forEach((device) => {
+                    console.log(`${device.kind}: ${device.label}, id = ${device.deviceId}`);
+                });
+            })
+            .catch((err) => { 
+                console.error(`${err.name}: ${err.message}`); 
+            });
+        }
+
+        const constraints = navigator.mediaDevices.getSupportedConstraints();
+        console.log("--- Contraintes supportées ---");
+        for (const constraint of Object.keys(constraints)) {
+            console.log(constraint);
+        }
+    </script>
+</body>
+</html>

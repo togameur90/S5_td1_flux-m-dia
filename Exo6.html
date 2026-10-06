@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Exercice 6</title>
+</head>
+<body>
+    <h1>Exercice 6</h1>
+
+    <audio-video source="audio video" height="240"></audio-video>
+
+    <script>
+        class AudioVideo extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                
+                this.source = this.getAttribute('source') || 'video';
+                this.hasVideo = this.source.includes('video');
+                this.hasAudio = this.source.includes('audio');
+                
+                this.shadowRoot.innerHTML = `
+                    <style>
+                        .controls { margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap; }
+                        video { background: #000; display: ${this.hasVideo ? 'block' : 'none'}; }
+                    </style>
+                    <video autoplay playsinline></video>
+                    <div class="controls">
+                        <button id="btn-start">Démarrer</button>
+                        ${this.hasVideo ? `
+                            <button id="btn-pause-vid" disabled>Pause Vidéo</button>
+                            <button id="btn-stop-vid" disabled>Stop Vidéo</button>
+                        ` : ''}
+                        ${this.hasAudio ? `
+                            <button id="btn-pause-aud" disabled>Pause Audio</button>
+                            <button id="btn-stop-aud" disabled>Stop Audio</button>
+                        ` : ''}
+                    </div>
+                `;
+
+                this.videoEl = this.shadowRoot.querySelector('video');
+                this.stream = null;
+
+                if (this.hasVideo) {
+                    if (this.hasAttribute('width')) this.videoEl.setAttribute('width', this.getAttribute('width'));
+                    if (this.hasAttribute('height')) this.videoEl.setAttribute('height', this.getAttribute('height'));
+                }
+            }
+
+            connectedCallback() {
+                const btnStart = this.shadowRoot.getElementById('btn-start');
+                const btnPauseVid = this.shadowRoot.getElementById('btn-pause-vid');
+                const btnStopVid = this.shadowRoot.getElementById('btn-stop-vid');
+                const btnPauseAud = this.shadowRoot.getElementById('btn-pause-aud');
+                const btnStopAud = this.shadowRoot.getElementById('btn-stop-aud');
+
+                btnStart.addEventListener('click', async () => {
+                    try {
+                        this.stream = await navigator.mediaDevices.getUserMedia({
+                            video: this.hasVideo,
+                            audio: this.hasAudio
+                        });
+                        
+                        if (this.hasVideo) {
+                            this.videoEl.srcObject = this.stream;
+                            this.videoEl.onloadedmetadata = () => {
+                                if (this.hasAttribute('width')) {
+                                    this.videoEl.setAttribute('height', this.getAttribute('width') * this.videoEl.videoHeight / this.videoEl.videoWidth);
+                                } else if (this.hasAttribute('height')) {
+                                    this.videoEl.setAttribute('width', this.getAttribute('height') * this.videoEl.videoWidth / this.videoEl.videoHeight);
+                                }
+                            };
+                        }
+
+                        btnStart.disabled = true;
+                        if (this.hasVideo) { btnPauseVid.disabled = false; btnStopVid.disabled = false; }
+                        if (this.hasAudio) { btnPauseAud.disabled = false; btnStopAud.disabled = false; }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                });
+
+                if (this.hasVideo) {
+                    btnPauseVid.addEventListener('click', () => {
+                        const track = this.stream.getVideoTracks()[0];
+                        if (track) {
+                            track.enabled = !track.enabled;
+                            btnPauseVid.textContent = track.enabled ? "Pause Vidéo" : "Reprendre Vidéo";
+                        }
+                    });
+                    
+                    btnStopVid.addEventListener('click', () => {
+                        const track = this.stream.getVideoTracks()[0];
+                        if (track) {
+                            track.stop();
+                            btnPauseVid.disabled = true;
+                            btnStopVid.disabled = true;
+                        }
+                    });
+                }
+
+                if (this.hasAudio) {
+                    btnPauseAud.addEventListener('click', () => {
+                        const track = this.stream.getAudioTracks()[0];
+                        if (track) {
+                            track.enabled = !track.enabled;
+                            btnPauseAud.textContent = track.enabled ? "Pause Audio" : "Reprendre Audio";
+                        }
+                    });
+
+                    btnStopAud.addEventListener('click', () => {
+                        const track = this.stream.getAudioTracks()[0];
+                        if (track) {
+                            track.stop();
+                            btnPauseAud.disabled = true;
+                            btnStopAud.disabled = true;
+                        }
+                    });
+                }
+            }
+        }
+
+        customElements.define('audio-video', AudioVideo);
+    </script>
+</body>
+</html>

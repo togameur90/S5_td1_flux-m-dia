@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Exercice 5</title>
+</head>
+<body>
+    <h1>Exercice 5</h1>
+    
+    <video id="video" height="240"></video>
+    
+    <div>
+        <button id="btn-start">Démarrer</button>
+        <button id="btn-pause" disabled>Pause</button>
+        <button id="btn-stop" disabled>Stopper</button>
+        <button id="btn-fs" disabled>Plein écran</button>
+    </div>
+    
+    <div id="info" style="margin-top: 15px;"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const btnStart = document.getElementById('btn-start');
+        const btnPause = document.getElementById('btn-pause');
+        const btnStop = document.getElementById('btn-stop');
+        const btnFs = document.getElementById('btn-fs');
+        const infoDiv = document.getElementById('info');
+        
+        let currentStream = null;
+
+        btnStart.addEventListener('click', () => {
+            navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+                .then((stream) => {
+                    currentStream = stream;
+                    video.srcObject = stream;
+                    
+                    btnStart.disabled = true;
+                    btnPause.disabled = false;
+                    btnStop.disabled = false;
+                    btnFs.disabled = false;
+
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        
+                        const track = stream.getVideoTracks()[0];
+                        const settings = track.getSettings();
+                        
+                        infoDiv.innerHTML = `
+                            <strong>Type :</strong> ${track.kind} <br>
+                            <strong>Label :</strong> ${track.label} <br>
+                            <strong>Dimensions :</strong> ${settings.width} x ${settings.height} <br>
+                            <strong>FPS :</strong> ${settings.frameRate}
+                        `;
+                    };
+                })
+                .catch((err) => console.error(err));
+        });
+
+        btnPause.addEventListener('click', () => {
+            if (video.paused) {
+                video.play();
+                btnPause.textContent = "Pause";
+            } else {
+                video.pause();
+                btnPause.textContent = "Reprendre";
+            }
+        });
+
+        btnStop.addEventListener('click', () => {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            
+            btnStart.disabled = false;
+            btnPause.disabled = true;
+            btnStop.disabled = true;
+            btnFs.disabled = true;
+            
+            btnPause.textContent = "Pause";
+            infoDiv.innerHTML = "";
+        });
+
+        btnFs.addEventListener('click', () => {
+            if (video.requestFullscreen) {
+                video.requestFullscreen();
+            }
+        });
+    </script>
+</body>
+</html>
